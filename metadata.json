@@ -1,0 +1,5 @@
+{
+  "name": "Gemini Multimedia Studio",
+  "description": "An advanced web application to edit images with 'Nano Banana' (gemini-2.5-flash-image-preview) and generate videos using the VEO model family, powered by the Google Gemini API.",
+  "requestFramePermissions": []
+}
