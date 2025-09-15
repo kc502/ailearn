@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { editImageWithNanoBanana, generateImageWithImagen } from '../services/geminiService';
+import { editImageWithNanoBanana, generateImageWithImagen } from '../geminiService';
 import { fileToBase64, dataUrlToFile } from '../utils/fileUtils';
 import { EditedImagePart } from '../types';
 

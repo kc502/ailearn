@@ -4,7 +4,7 @@ import { Tool } from './types';
 import ImageStudio from './components/ImageStudio';
 import VideoGenerator from './components/VideoGenerator';
 import ApiKeyInput from './components/ApiKeyInput';
-import { validateApiKey } from './services/geminiService';
+import { validateApiKey } from './geminiService';
 
 const App: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>(localStorage.getItem('gemini-api-key') || '');

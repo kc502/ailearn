@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { generateVideoWithVeo } from '../services/geminiService';
+import { generateVideoWithVeo } from '../geminiService';
 import { fileToBase64 } from '../utils/fileUtils';
 
 interface VideoGeneratorProps {
