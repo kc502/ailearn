@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { editImageWithNanoBanana } from '../geminiService';
 import { fileToBase64 } from '../utils/fileUtils';
@@ -11,8 +10,8 @@ interface ImageEditResult {
 }
 
 interface ImageEditorProps {
-  apiKey: string;
-  isKeyValid: boolean | null;
+    apiKey: string;
+    isKeyValid: boolean;
 }
 
 const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
@@ -64,10 +63,6 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
       setError('Please provide a prompt and at least one image.');
       return;
     }
-     if (!isKeyValid) {
-      setError('Please provide a valid API key to edit images.');
-      return;
-    }
     
     setIsLoading(true);
     setError(null);
@@ -79,7 +74,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
         const file = imageFiles[i];
         setProcessingStatus(`Editing image ${i + 1} of ${imageFiles.length}: ${file.name}`);
         const base64Image = await fileToBase64(file);
-        // The editImageWithNanoBanana service function now requires an API key as the first parameter.
+        // FIX: Pass the apiKey to the service function.
         const response = await editImageWithNanoBanana(apiKey, base64Image, file.type, prompt);
         newResults.push({
             originalPreview: imagePreviews[i],
@@ -94,7 +89,7 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
       setIsLoading(false);
       setProcessingStatus(null);
     }
-  }, [apiKey, isKeyValid, prompt, imageFiles, imagePreviews]);
+  }, [prompt, imageFiles, imagePreviews, apiKey]);
 
   const handleDownload = (imageUrl: string, originalName: string) => {
     const link = document.createElement('a');

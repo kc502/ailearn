@@ -1,11 +1,10 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { generateVideoWithVeo } from '../geminiService';
 import { fileToBase64 } from '../utils/fileUtils';
 
 interface VideoGeneratorProps {
   apiKey: string;
-  isKeyValid: boolean | null;
+  isKeyValid: boolean;
 }
 
 const loadingMessages = [
@@ -21,8 +20,8 @@ const loadingMessages = [
 
 const VEO_MODELS: { [key: string]: string } = {
     'veo2': 'veo-2.0-generate-001',
-    'veo3': 'veo-3.0-generate-001', // Speculative
-    'veo3 fast': 'veo-3.0-fast-generate-001', // Speculative
+    // 'veo3': 'veo-3.0-generate-001', // Speculative
+    // 'veo3 fast': 'veo-3.0-fast-generate-001', // Speculative
 };
 
 const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) => {
@@ -65,8 +64,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) =
 
   const handleSubmit = useCallback(async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!prompt || !isKeyValid) {
-      setError('Please provide a prompt and ensure your API key is valid.');
+    if (!prompt) {
+      setError('Please provide a prompt.');
       return;
     }
 
@@ -88,7 +87,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) =
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, isKeyValid, prompt, imageFile, selectedModel]);
+  }, [apiKey, prompt, imageFile, selectedModel]);
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-6">
@@ -172,7 +171,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) =
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Note: Only `veo2` is confirmed to be publicly available. Other selections may not work.</p>
+                {/* <p className="text-xs text-gray-500 mt-1">Note: Only `veo2` is confirmed to be publicly available. Other selections may not work.</p> */}
              </fieldset>
           </div>
 

@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Tool } from './types';
 import ImageStudio from './components/ImageStudio';
 import VideoGenerator from './components/VideoGenerator';
@@ -7,54 +6,51 @@ import ApiKeyInput from './components/ApiKeyInput';
 import { validateApiKey } from './geminiService';
 
 const App: React.FC = () => {
-  const [apiKey, setApiKey] = useState<string>(localStorage.getItem('gemini-api-key') || '');
+  const [activeTool, setActiveTool] = useState<Tool>(Tool.IMAGE_STUDIO);
+  const [apiKey, setApiKey] = useState<string>('');
   const [isKeyValid, setIsKeyValid] = useState<boolean | null>(null);
   const [isKeyChecking, setIsKeyChecking] = useState<boolean>(true);
-  const [activeTool, setActiveTool] = useState<Tool>(Tool.IMAGE_STUDIO);
 
-  const handleApiKeySubmit = async (key: string, isInitialLoad: boolean = false) => {
-    // Don't show loading spinner on initial silent check
-    if (!isInitialLoad) {
-        setIsKeyChecking(true);
+  useEffect(() => {
+    const storedKey = localStorage.getItem('gemini-api-key');
+    if (storedKey) {
+      handleApiKeySubmit(storedKey, true);
+    } else {
+      setIsKeyChecking(false); // No key stored, stop checking
     }
-    
-    const trimmedKey = key.trim();
-    if (!trimmedKey) {
-        setIsKeyValid(false);
+  }, []);
+
+  const handleApiKeySubmit = useCallback(async (key: string, isInitialLoad = false) => {
+    if (!key) {
         setApiKey('');
-        localStorage.removeItem('gemini-api-key');
+        setIsKeyValid(false);
         setIsKeyChecking(false);
+        localStorage.removeItem('gemini-api-key');
         return;
     }
+    
+    setIsKeyChecking(true);
+    setApiKey(key);
 
-    const isValid = await validateApiKey(trimmedKey);
+    const isValid = await validateApiKey(key);
+    
     setIsKeyValid(isValid);
-    if (isValid) {
-        setApiKey(trimmedKey);
-        localStorage.setItem('gemini-api-key', trimmedKey);
-    } else {
-        // Clear invalid key from state and storage
-        setApiKey('');
-        localStorage.removeItem('gemini-api-key');
-    }
     setIsKeyChecking(false);
-  };
-  
-  useEffect(() => {
-    if (apiKey) {
-      handleApiKeySubmit(apiKey, true);
-    } else {
-      setIsKeyChecking(false);
+
+    if (isValid) {
+      localStorage.setItem('gemini-api-key', key);
+    } else if (!isInitialLoad) {
+      localStorage.removeItem('gemini-api-key');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only on initial mount
+  }, []);
+
 
   const renderTool = () => {
     switch (activeTool) {
       case Tool.IMAGE_STUDIO:
-        return <ImageStudio apiKey={apiKey} isKeyValid={isKeyValid} />;
+        return <ImageStudio apiKey={apiKey} isKeyValid={isKeyValid === true} />;
       case Tool.VIDEO_GENERATOR:
-        return <VideoGenerator apiKey={apiKey} isKeyValid={isKeyValid} />;
+        return <VideoGenerator apiKey={apiKey} isKeyValid={isKeyValid === true} />;
       default:
         return null;
     }
@@ -77,10 +73,10 @@ const App: React.FC = () => {
             apiKey={apiKey}
             isKeyValid={isKeyValid}
             isKeyChecking={isKeyChecking}
-            onApiKeySubmit={(key) => handleApiKeySubmit(key, false)}
+            onApiKeySubmit={handleApiKeySubmit}
           />
           
-          {isKeyValid ? (
+          {isKeyValid && (
             <>
               <div className="flex justify-center my-8">
                 <div className="relative inline-flex bg-gray-800 rounded-lg p-1 space-x-1">
@@ -105,12 +101,6 @@ const App: React.FC = () => {
                 {renderTool()}
               </div>
             </>
-          ) : (
-             !isKeyChecking && (
-                 <div className="text-center text-gray-400 bg-gray-800/50 p-6 rounded-lg border border-gray-700">
-                    <p>Please enter a valid Google Gemini API Key above to use the tools.</p>
-                </div>
-             )
           )}
         </main>
       </div>
