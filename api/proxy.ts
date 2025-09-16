@@ -69,9 +69,8 @@ export default async function handler(req: Request) {
 
   } catch (error: any) {
     console.error(`Error in proxy handler:`, error);
-    const errorMessage = error.message?.includes('API key') 
-        ? 'The provided API Key is invalid, has been revoked, or does not have permission for this model.'
-        : 'An internal server error occurred while contacting the Gemini API via the proxy.';
+    // The original error message from the Gemini API is more useful for debugging.
+    const errorMessage = error.message || 'An internal server error occurred while contacting the Gemini API via the proxy.';
     
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,

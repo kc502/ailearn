@@ -20,8 +20,8 @@ const loadingMessages = [
 
 const VEO_MODELS: { [key: string]: string } = {
     'veo2': 'veo-2.0-generate-001',
-    // 'veo3': 'veo-3.0-generate-001', // Speculative
-    // 'veo3 fast': 'veo-3.0-fast-generate-001', // Speculative
+    'veo3': 'veo-3.0-generate-001',
+    'veo3 fast': 'veo-3.0-fast-generate-001',
 };
 
 const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) => {
@@ -171,7 +171,7 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) =
                     </div>
                   ))}
                 </div>
-                {/* <p className="text-xs text-gray-500 mt-1">Note: Only `veo2` is confirmed to be publicly available. Other selections may not work.</p> */}
+                <p className="text-xs text-gray-500 mt-1">Note: Only `veo2` is confirmed to be publicly available. Other selections may not work.</p>
              </fieldset>
           </div>
 
