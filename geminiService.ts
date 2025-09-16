@@ -1,49 +1,44 @@
-import { GenerateContentResponse, Modality } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Modality } from "@google/genai";
 import { EditedImagePart } from '../types';
 
-// FIX: A helper function to call our own server-side proxy API.
-// This encapsulates the logic for communicating with the proxy, which securely handles the API key.
-const callProxy = async (endpoint: string, payload: any) => {
-  const response = await fetch('/api/proxy', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ endpoint, payload }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    // The proxy is designed to forward the Gemini API's error message, which is more informative.
-    throw new Error(data.error || 'An unexpected error occurred via the proxy.');
-  }
-  return data;
-};
-
-
-// FIX: This function is now a health check for the server-side API key configuration.
-// It replaces the client-side key validation.
-export const checkApiReadiness = async (): Promise<boolean> => {
+/**
+ * Validates a Google Gemini API key by making a lightweight, non-streaming call.
+ * @param apiKey The API key to validate.
+ * @returns A promise that resolves to true if the key is valid, and false otherwise.
+ */
+export const validateApiKey = async (apiKey: string): Promise<boolean> => {
+  if (!apiKey) return false;
   try {
-    await callProxy('validate', {});
+    const ai = new GoogleGenAI({ apiKey });
+    // Make a lightweight, non-streaming call to check credentials.
+    await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: 'Hi',
+        config: { thinkingConfig: { thinkingBudget: 0 } }
+    });
     return true;
   } catch (error) {
-    console.error('API readiness check failed:', error);
+    console.error("API Key validation failed:", error);
     return false;
   }
 };
 
-// FIX: Removed apiKey parameter. The API key is now handled by the server-side proxy.
-export const generateImageWithImagen = async (prompt: string): Promise<string[]> => {
-    const payload = {
+/**
+ * Generates an image using the Imagen model.
+ * @param apiKey The user's Google Gemini API key.
+ * @param prompt The text prompt for image generation.
+ * @returns A promise that resolves to an array of base64-encoded image data URLs.
+ */
+export const generateImageWithImagen = async (apiKey: string, prompt: string): Promise<string[]> => {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateImages({
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
         config: {
             numberOfImages: 1,
             outputMimeType: 'image/png',
         },
-    };
-    const response = await callProxy('generateImages', payload);
+    });
 
     if (!response.generatedImages || response.generatedImages.length === 0) {
       throw new Error("The model did not return any images. Please try a different prompt.");
@@ -52,14 +47,22 @@ export const generateImageWithImagen = async (prompt: string): Promise<string[]>
     return response.generatedImages.map((img: any) => `data:image/png;base64,${img.image.imageBytes}`);
 };
 
-// FIX: Removed apiKey parameter. The API key is now handled by the server-side proxy.
-// This change fixes the "Expected 4 arguments, but got 3" error in ImageEditor.tsx.
+/**
+ * Edits an image using the 'Nano Banana' model.
+ * @param apiKey The user's Google Gemini API key.
+ * @param base64ImageData The base64-encoded string of the image to edit.
+ * @param mimeType The MIME type of the image.
+ * @param prompt The text prompt describing the desired edits.
+ * @returns A promise that resolves to an array of edited image parts (text or image).
+ */
 export const editImageWithNanoBanana = async (
+  apiKey: string,
   base64ImageData: string,
   mimeType: string,
   prompt: string,
 ): Promise<EditedImagePart[]> => {
-    const payload = {
+    const ai = new GoogleGenAI({ apiKey });
+    const response: GenerateContentResponse = await ai.models.generateContent({
         model: 'gemini-2.5-flash-image-preview',
         contents: {
             parts: [
@@ -68,8 +71,7 @@ export const editImageWithNanoBanana = async (
             ],
         },
         config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
-    };
-    const response: GenerateContentResponse = await callProxy('generateContent', payload);
+    });
     
     const results: EditedImagePart[] = [];
     if (response.candidates && response.candidates.length > 0) {
@@ -89,13 +91,23 @@ export const editImageWithNanoBanana = async (
     return results;
 };
 
-// FIX: Removed apiKey parameter. The API key and video URI signing are now handled by the server-side proxy.
+/**
+ * Generates a video using the VEO model family.
+ * @param apiKey The user's Google Gemini API key.
+ * @param prompt The text prompt for video generation.
+ * @param model The specific VEO model to use.
+ * @param base64ImageData Optional base64-encoded seed image.
+ * @param mimeType Optional MIME type for the seed image.
+ * @returns A promise that resolves to the downloadable video URI.
+ */
 export const generateVideoWithVeo = async (
+  apiKey: string,
   prompt: string,
   model: string,
   base64ImageData?: string,
   mimeType?: string
 ): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey });
     const generateParams: any = {
         model,
         prompt,
@@ -109,12 +121,11 @@ export const generateVideoWithVeo = async (
         };
     }
 
-    let operation = await callProxy('generateVideos', generateParams);
+    let operation = await ai.models.generateVideos(generateParams);
     
     while (!operation.done) {
       await new Promise(resolve => setTimeout(resolve, 10000));
-      // FIX: Call the proxy for polling, passing only the operation name as required.
-      operation = await callProxy('getVideosOperation', { operationName: operation.name });
+      operation = await ai.operations.getVideosOperation({operation: operation});
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
@@ -122,6 +133,6 @@ export const generateVideoWithVeo = async (
         throw new Error("Video generation completed, but no download link was found.");
     }
 
-    // FIX: The proxy now appends the API key, so the link can be used directly.
-    return downloadLink;
+    // The VEO API requires the API key to be appended to the download URI for access.
+    return `${downloadLink}&key=${apiKey}`;
 };

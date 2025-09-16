@@ -2,35 +2,55 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Tool } from './types';
 import ImageStudio from './components/ImageStudio';
 import VideoGenerator from './components/VideoGenerator';
-// FIX: ApiKeyInput is no longer used as the API key is handled on the server.
-// import ApiKeyInput from './components/ApiKeyInput';
-import { checkApiReadiness } from './geminiService';
-import ApiKeyWarning from './components/ApiKeyWarning';
+import ApiKeyInput from './components/ApiKeyInput';
+import { validateApiKey } from './geminiService';
 
 const App: React.FC = () => {
   const [activeTool, setActiveTool] = useState<Tool>(Tool.IMAGE_STUDIO);
-  // FIX: Removed client-side API key state management in favor of a server-side proxy.
-  const [isApiReady, setIsApiReady] = useState<boolean | null>(null);
+  const [apiKey, setApiKey] = useState<string>('');
+  const [isKeyValid, setIsKeyValid] = useState<boolean | null>(null);
+  const [isKeyChecking, setIsKeyChecking] = useState<boolean>(false);
 
-  // FIX: This function now checks if the server is ready to accept API calls.
-  const checkServerReadiness = useCallback(async () => {
-    setIsApiReady(null);
-    const isReady = await checkApiReadiness();
-    setIsApiReady(isReady);
-  }, []);
-  
-  // FIX: Validate server readiness on initial load.
+  // On initial load, try to get API key from localStorage and validate it.
   useEffect(() => {
-    checkServerReadiness();
-  }, [checkServerReadiness]);
+    const storedApiKey = localStorage.getItem('gemini-api-key');
+    if (storedApiKey) {
+      handleApiKeySubmit(storedApiKey);
+    }
+  }, []);
+
+  const handleApiKeySubmit = useCallback(async (key: string) => {
+    if (!key) {
+      setApiKey('');
+      setIsKeyValid(false);
+      localStorage.removeItem('gemini-api-key');
+      return;
+    }
+
+    setIsKeyChecking(true);
+    setIsKeyValid(null);
+    setApiKey(key);
+    
+    const isValid = await validateApiKey(key);
+    
+    setIsKeyValid(isValid);
+    setIsKeyChecking(false);
+    
+    if (isValid) {
+      localStorage.setItem('gemini-api-key', key);
+    } else {
+      localStorage.removeItem('gemini-api-key');
+    }
+  }, []);
 
   const renderTool = () => {
+    // The apiKey is passed to the components.
+    // The components' UI elements will be disabled if the key is missing or invalid.
     switch (activeTool) {
-      // FIX: Pass `isApiReady` prop instead of API key details.
       case Tool.IMAGE_STUDIO:
-        return <ImageStudio isApiReady={isApiReady === true} />;
+        return <ImageStudio apiKey={apiKey} />;
       case Tool.VIDEO_GENERATOR:
-        return <VideoGenerator isApiReady={isApiReady === true} />;
+        return <VideoGenerator apiKey={apiKey} />;
       default:
         return null;
     }
@@ -43,50 +63,53 @@ const App: React.FC = () => {
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
             Gemini Multimedia Studio
           </h1>
-          <p className="mt-3 text-lg text-gray-400">
-            Edit and generate images and videos with the power of Google's Gemini models.
+          <p className="mt-3 max-w-2xl mx-auto text-lg text-gray-400">
+            Create and edit images and videos with the power of Google's Gemini models.
           </p>
         </header>
 
         <main>
-          {/* FIX: Removed ApiKeyInput component. The API key is managed on the server. */}
-          
-          {/* FIX: Show a loading state while checking server readiness. */}
-          {isApiReady === null && (
-            <div className="text-center text-gray-400 my-8">
-              <p>Connecting to Gemini API...</p>
+          <ApiKeyInput 
+            apiKey={apiKey} 
+            isKeyValid={isKeyValid} 
+            isKeyChecking={isKeyChecking}
+            onApiKeySubmit={handleApiKeySubmit} 
+          />
+
+          {isKeyValid ? (
+            <div>
+              <nav className="flex justify-center mb-8 border-b border-gray-700">
+                <button
+                  onClick={() => setActiveTool(Tool.IMAGE_STUDIO)}
+                  className={`px-4 py-3 text-sm font-medium transition-colors duration-200 ease-in-out
+                    ${activeTool === Tool.IMAGE_STUDIO
+                      ? 'border-b-2 border-purple-500 text-white'
+                      : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                  Image Studio
+                </button>
+                <button
+                  onClick={() => setActiveTool(Tool.VIDEO_GENERATOR)}
+                  className={`px-4 py-3 text-sm font-medium transition-colors duration-200 ease-in-out
+                    ${activeTool === Tool.VIDEO_GENERATOR
+                      ? 'border-b-2 border-purple-500 text-white'
+                      : 'text-gray-400 hover:text-white'
+                    }`}
+                >
+                  Video Generator
+                </button>
+              </nav>
+              {renderTool()}
             </div>
-          )}
-
-          {/* FIX: Show a warning if the server-side API key is not configured correctly. */}
-          {isApiReady === false && <ApiKeyWarning />}
-
-          {/* FIX: Only show the main UI if the API is ready. */}
-          {isApiReady === true && (
-            <>
-              <div className="flex justify-center my-8">
-                <div className="relative inline-flex bg-gray-800 rounded-lg p-1 space-x-1">
-                  <button
-                    onClick={() => setActiveTool(Tool.IMAGE_STUDIO)}
-                    className={`relative w-40 text-center py-2 px-4 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900
-                      ${activeTool === Tool.IMAGE_STUDIO ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-                  >
-                    Image Studio
-                  </button>
-                  <button
-                    onClick={() => setActiveTool(Tool.VIDEO_GENERATOR)}
-                    className={`relative w-40 text-center py-2 px-4 rounded-md text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900
-                      ${activeTool === Tool.VIDEO_GENERATOR ? 'bg-purple-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-                  >
-                    Video Generator
-                  </button>
+          ) : (
+            // Show a welcome message if the key has been checked and is invalid, or on initial load.
+            isKeyValid === false && (
+                <div className="text-center p-8 bg-gray-800/50 rounded-lg border border-gray-700">
+                    <h2 className="text-xl font-semibold text-gray-200">Welcome to the Studio</h2>
+                    <p className="mt-2 text-gray-400">Please enter a valid Google Gemini API Key above to get started.</p>
                 </div>
-              </div>
-
-              <div className="mt-4">
-                {renderTool()}
-              </div>
-            </>
+            )
           )}
         </main>
       </div>

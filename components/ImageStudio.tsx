@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-// FIX: API key is handled server-side. The apiKey parameter is removed from service functions.
 import { editImageWithNanoBanana, generateImageWithImagen } from '../geminiService';
 import { fileToBase64, dataUrlToFile } from '../utils/fileUtils';
 import { EditedImagePart } from '../types';
 
 interface ImageStudioProps {
-  // FIX: Prop changed to `isApiReady` to reflect server-side key management.
-  isApiReady: boolean;
+  apiKey: string;
 }
 
 interface ImageEditResult {
@@ -17,7 +15,7 @@ interface ImageEditResult {
 
 type StudioMode = 'GENERATE' | 'EDIT';
 
-const ImageStudio: React.FC<ImageStudioProps> = ({ isApiReady }) => {
+const ImageStudio: React.FC<ImageStudioProps> = ({ apiKey }) => {
   const [mode, setMode] = useState<StudioMode>('GENERATE');
   const [prompt, setPrompt] = useState<string>('A photorealistic image of a cat wearing a tiny wizard hat');
   
@@ -82,7 +80,6 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ isApiReady }) => {
     setImagePreviews([previewUrl]);
     setGeneratedImages([]); // Clear generated results
     setMode('EDIT');
-    // Scroll to top may be useful here
     window.scrollTo(0, 0);
   };
   
@@ -91,14 +88,17 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ isApiReady }) => {
           setError('Please provide a prompt.');
           return;
       }
+      if (!apiKey) {
+        setError('Please enter a valid API key to begin.');
+        return;
+      }
       setIsLoading(true);
       setError(null);
       setGeneratedImages([]);
       setProcessingStatus('Generating image...');
 
       try {
-          // FIX: Removed apiKey from the service function call.
-          const response = await generateImageWithImagen(prompt);
+          const response = await generateImageWithImagen(apiKey, prompt);
           setGeneratedImages(response);
       } catch (err: any) {
           setError(err.message || 'An unknown error occurred during image generation.');
@@ -113,6 +113,10 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ isApiReady }) => {
         setError('Please provide a prompt and at least one image.');
         return;
       }
+      if (!apiKey) {
+        setError('Please enter a valid API key to begin.');
+        return;
+      }
       setIsLoading(true);
       setError(null);
       setEditResults([]);
@@ -123,8 +127,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ isApiReady }) => {
           const file = imageFiles[i];
           setProcessingStatus(`Editing image ${i + 1} of ${imageFiles.length}: ${file.name}`);
           const base64Image = await fileToBase64(file);
-          // FIX: Removed apiKey from the service function call.
-          const response = await editImageWithNanoBanana(base64Image, file.type, prompt);
+          const response = await editImageWithNanoBanana(apiKey, base64Image, file.type, prompt);
           newResults.push({
               originalPreview: imagePreviews[i],
               originalName: file.name,
@@ -162,8 +165,7 @@ const ImageStudio: React.FC<ImageStudioProps> = ({ isApiReady }) => {
   };
 
   const isSubmitDisabled = () => {
-      // FIX: Use isApiReady instead of isKeyValid to determine if button is disabled.
-      if (isLoading || !prompt || !isApiReady) return true;
+      if (isLoading || !prompt || !apiKey) return true;
       if (mode === 'EDIT' && imageFiles.length === 0) return true;
       return false;
   };
