@@ -1,42 +1,40 @@
+import { GenerateContentResponse, Modality } from "@google/genai";
 import { EditedImagePart } from '../types';
 
-const PROXY_URL = '/api/proxy';
+// FIX: A helper function to call our own server-side proxy API.
+// This encapsulates the logic for communicating with the proxy, which securely handles the API key.
+const callProxy = async (endpoint: string, payload: any) => {
+  const response = await fetch('/api/proxy', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ endpoint, payload }),
+  });
 
-const handleProxyError = async (response: Response, context: string): Promise<never> => {
-    let errorJson;
-    try {
-        errorJson = await response.json();
-    } catch (e) {
-        throw new Error(`Failed to ${context.toLowerCase()} with status ${response.status}. Could not parse error response.`);
-    }
-    console.error(`Error in ${context}:`, errorJson);
-    throw new Error(errorJson.error || `An unknown error occurred while ${context.toLowerCase()}`);
-}
+  const data = await response.json();
+  if (!response.ok) {
+    // The proxy is designed to forward the Gemini API's error message, which is more informative.
+    throw new Error(data.error || 'An unexpected error occurred via the proxy.');
+  }
+  return data;
+};
 
-const callProxy = async (apiKey: string, endpoint: string, payload: any) => {
-    const response = await fetch(PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, endpoint, payload })
-    });
-    if (!response.ok) {
-        await handleProxyError(response, `calling endpoint ${endpoint}`);
-    }
-    return response.json();
-}
 
-export const validateApiKey = async (apiKey: string): Promise<boolean> => {
-  if (!apiKey) return false;
+// FIX: This function is now a health check for the server-side API key configuration.
+// It replaces the client-side key validation.
+export const checkApiReadiness = async (): Promise<boolean> => {
   try {
-    await callProxy(apiKey, 'validate', {});
+    await callProxy('validate', {});
     return true;
   } catch (error) {
-    console.error('API Key validation failed:', error);
+    console.error('API readiness check failed:', error);
     return false;
   }
 };
 
-export const generateImageWithImagen = async (apiKey: string, prompt: string): Promise<string[]> => {
+// FIX: Removed apiKey parameter. The API key is now handled by the server-side proxy.
+export const generateImageWithImagen = async (prompt: string): Promise<string[]> => {
     const payload = {
         model: 'imagen-4.0-generate-001',
         prompt: prompt,
@@ -45,7 +43,7 @@ export const generateImageWithImagen = async (apiKey: string, prompt: string): P
             outputMimeType: 'image/png',
         },
     };
-    const response = await callProxy(apiKey, 'generateImages', payload);
+    const response = await callProxy('generateImages', payload);
 
     if (!response.generatedImages || response.generatedImages.length === 0) {
       throw new Error("The model did not return any images. Please try a different prompt.");
@@ -54,11 +52,12 @@ export const generateImageWithImagen = async (apiKey: string, prompt: string): P
     return response.generatedImages.map((img: any) => `data:image/png;base64,${img.image.imageBytes}`);
 };
 
+// FIX: Removed apiKey parameter. The API key is now handled by the server-side proxy.
+// This change fixes the "Expected 4 arguments, but got 3" error in ImageEditor.tsx.
 export const editImageWithNanoBanana = async (
-  apiKey: string,
   base64ImageData: string,
   mimeType: string,
-  prompt: string
+  prompt: string,
 ): Promise<EditedImagePart[]> => {
     const payload = {
         model: 'gemini-2.5-flash-image-preview',
@@ -68,9 +67,9 @@ export const editImageWithNanoBanana = async (
                 { text: prompt },
             ],
         },
-        config: { responseModalities: ['IMAGE', 'TEXT'] },
+        config: { responseModalities: [Modality.IMAGE, Modality.TEXT] },
     };
-    const response = await callProxy(apiKey, 'generateContent', payload);
+    const response: GenerateContentResponse = await callProxy('generateContent', payload);
     
     const results: EditedImagePart[] = [];
     if (response.candidates && response.candidates.length > 0) {
@@ -90,8 +89,8 @@ export const editImageWithNanoBanana = async (
     return results;
 };
 
+// FIX: Removed apiKey parameter. The API key and video URI signing are now handled by the server-side proxy.
 export const generateVideoWithVeo = async (
-  apiKey: string,
   prompt: string,
   model: string,
   base64ImageData?: string,
@@ -110,11 +109,12 @@ export const generateVideoWithVeo = async (
         };
     }
 
-    let operation = await callProxy(apiKey, 'generateVideos', generateParams);
+    let operation = await callProxy('generateVideos', generateParams);
     
     while (!operation.done) {
       await new Promise(resolve => setTimeout(resolve, 10000));
-      operation = await callProxy(apiKey, 'getVideosOperation', { operation: operation });
+      // FIX: Call the proxy for polling, passing only the operation name as required.
+      operation = await callProxy('getVideosOperation', { operationName: operation.name });
     }
 
     const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
@@ -122,5 +122,6 @@ export const generateVideoWithVeo = async (
         throw new Error("Video generation completed, but no download link was found.");
     }
 
-    return `${downloadLink}&key=${apiKey}`;
+    // FIX: The proxy now appends the API key, so the link can be used directly.
+    return downloadLink;
 };

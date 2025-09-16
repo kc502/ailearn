@@ -2,55 +2,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Tool } from './types';
 import ImageStudio from './components/ImageStudio';
 import VideoGenerator from './components/VideoGenerator';
-import ApiKeyInput from './components/ApiKeyInput';
-import { validateApiKey } from './geminiService';
+// FIX: ApiKeyInput is no longer used as the API key is handled on the server.
+// import ApiKeyInput from './components/ApiKeyInput';
+import { checkApiReadiness } from './geminiService';
+import ApiKeyWarning from './components/ApiKeyWarning';
 
 const App: React.FC = () => {
   const [activeTool, setActiveTool] = useState<Tool>(Tool.IMAGE_STUDIO);
-  const [apiKey, setApiKey] = useState<string>('');
-  const [isKeyValid, setIsKeyValid] = useState<boolean | null>(null);
-  const [isKeyChecking, setIsKeyChecking] = useState<boolean>(true);
+  // FIX: Removed client-side API key state management in favor of a server-side proxy.
+  const [isApiReady, setIsApiReady] = useState<boolean | null>(null);
 
+  // FIX: This function now checks if the server is ready to accept API calls.
+  const checkServerReadiness = useCallback(async () => {
+    setIsApiReady(null);
+    const isReady = await checkApiReadiness();
+    setIsApiReady(isReady);
+  }, []);
+  
+  // FIX: Validate server readiness on initial load.
   useEffect(() => {
-    const storedKey = localStorage.getItem('gemini-api-key');
-    if (storedKey) {
-      handleApiKeySubmit(storedKey, true);
-    } else {
-      setIsKeyChecking(false); // No key stored, stop checking
-    }
-  }, []);
-
-  const handleApiKeySubmit = useCallback(async (key: string, isInitialLoad = false) => {
-    if (!key) {
-        setApiKey('');
-        setIsKeyValid(false);
-        setIsKeyChecking(false);
-        localStorage.removeItem('gemini-api-key');
-        return;
-    }
-    
-    setIsKeyChecking(true);
-    setApiKey(key);
-
-    const isValid = await validateApiKey(key);
-    
-    setIsKeyValid(isValid);
-    setIsKeyChecking(false);
-
-    if (isValid) {
-      localStorage.setItem('gemini-api-key', key);
-    } else if (!isInitialLoad) {
-      localStorage.removeItem('gemini-api-key');
-    }
-  }, []);
-
+    checkServerReadiness();
+  }, [checkServerReadiness]);
 
   const renderTool = () => {
     switch (activeTool) {
+      // FIX: Pass `isApiReady` prop instead of API key details.
       case Tool.IMAGE_STUDIO:
-        return <ImageStudio apiKey={apiKey} isKeyValid={isKeyValid === true} />;
+        return <ImageStudio isApiReady={isApiReady === true} />;
       case Tool.VIDEO_GENERATOR:
-        return <VideoGenerator apiKey={apiKey} isKeyValid={isKeyValid === true} />;
+        return <VideoGenerator isApiReady={isApiReady === true} />;
       default:
         return null;
     }
@@ -69,14 +49,20 @@ const App: React.FC = () => {
         </header>
 
         <main>
-          <ApiKeyInput
-            apiKey={apiKey}
-            isKeyValid={isKeyValid}
-            isKeyChecking={isKeyChecking}
-            onApiKeySubmit={handleApiKeySubmit}
-          />
+          {/* FIX: Removed ApiKeyInput component. The API key is managed on the server. */}
           
-          {isKeyValid && (
+          {/* FIX: Show a loading state while checking server readiness. */}
+          {isApiReady === null && (
+            <div className="text-center text-gray-400 my-8">
+              <p>Connecting to Gemini API...</p>
+            </div>
+          )}
+
+          {/* FIX: Show a warning if the server-side API key is not configured correctly. */}
+          {isApiReady === false && <ApiKeyWarning />}
+
+          {/* FIX: Only show the main UI if the API is ready. */}
+          {isApiReady === true && (
             <>
               <div className="flex justify-center my-8">
                 <div className="relative inline-flex bg-gray-800 rounded-lg p-1 space-x-1">

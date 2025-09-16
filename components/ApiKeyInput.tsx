@@ -4,7 +4,7 @@ interface ApiKeyInputProps {
   apiKey: string;
   isKeyValid: boolean | null;
   isKeyChecking: boolean;
-  onApiKeySubmit: (key: string, isInitialLoad?: boolean) => Promise<void>;
+  onApiKeySubmit: (key: string) => Promise<void>;
 }
 
 const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ apiKey, isKeyValid, isKeyChecking, onApiKeySubmit }) => {
@@ -12,19 +12,25 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ apiKey, isKeyValid, isKeyChec
   const [showKey, setShowKey] = useState(false);
   const isInitialMount = useRef(true);
 
+  // Update input value if the key is cleared from parent (e.g. on invalid)
   useEffect(() => {
-    // Do not run validation on the initial render, which might be from localStorage.
-    // The parent component handles initial validation.
+    setInputValue(apiKey);
+  }, [apiKey]);
+  
+  useEffect(() => {
+    // Parent component handles initial validation on load.
+    // This effect is for debouncing user input.
     if (isInitialMount.current) {
       isInitialMount.current = false;
       return;
     }
 
     const handler = setTimeout(() => {
+      // Don't re-validate if the value is the same as the already validated key
       if (inputValue !== apiKey) {
         onApiKeySubmit(inputValue);
       }
-    }, 750); // Debounce API calls by 750ms
+    }, 750); // Debounce API calls
 
     return () => {
       clearTimeout(handler);
@@ -34,7 +40,9 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ apiKey, isKeyValid, isKeyChec
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onApiKeySubmit(inputValue);
+    if (inputValue !== apiKey) {
+        onApiKeySubmit(inputValue);
+    }
   };
   
   const getStatusMessage = () => {
@@ -44,7 +52,6 @@ const ApiKeyInput: React.FC<ApiKeyInputProps> = ({ apiKey, isKeyValid, isKeyChec
     if (isKeyValid === true) {
       return <div className="text-green-400 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>API Key is valid.</div>;
     }
-    // Show invalid message only if input is not empty
     if (isKeyValid === false && inputValue) {
       return <div className="text-red-400">Invalid or incorrect API Key.</div>;
     }

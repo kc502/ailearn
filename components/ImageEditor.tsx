@@ -10,11 +10,11 @@ interface ImageEditResult {
 }
 
 interface ImageEditorProps {
-    apiKey: string;
-    isKeyValid: boolean;
+    // FIX: API key is handled server-side. Prop replaced with `isApiReady`.
+    isApiReady: boolean;
 }
 
-const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
+const ImageEditor: React.FC<ImageEditorProps> = ({ isApiReady }) => {
   const [prompt, setPrompt] = useState<string>('Add a small, cute robot to this image');
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
@@ -74,8 +74,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
         const file = imageFiles[i];
         setProcessingStatus(`Editing image ${i + 1} of ${imageFiles.length}: ${file.name}`);
         const base64Image = await fileToBase64(file);
-        // FIX: Pass the apiKey to the service function.
-        const response = await editImageWithNanoBanana(apiKey, base64Image, file.type, prompt);
+        // FIX: Removed apiKey from the service function call.
+        const response = await editImageWithNanoBanana(base64Image, file.type, prompt);
         newResults.push({
             originalPreview: imagePreviews[i],
             originalName: file.name,
@@ -89,7 +89,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
       setIsLoading(false);
       setProcessingStatus(null);
     }
-  }, [prompt, imageFiles, imagePreviews, apiKey]);
+  // FIX: Removed apiKey from dependencies.
+  }, [prompt, imageFiles, imagePreviews]);
 
   const handleDownload = (imageUrl: string, originalName: string) => {
     const link = document.createElement('a');
@@ -171,7 +172,8 @@ const ImageEditor: React.FC<ImageEditorProps> = ({ apiKey, isKeyValid }) => {
             </div>
             <button
               type="submit"
-              disabled={isLoading || imageFiles.length === 0 || !prompt || !isKeyValid}
+              // FIX: Use isApiReady instead of isKeyValid to determine if button is disabled.
+              disabled={isLoading || imageFiles.length === 0 || !prompt || !isApiReady}
               className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-purple-500 disabled:bg-gray-500 disabled:cursor-not-allowed transition-all duration-200"
             >
               {isLoading ? (

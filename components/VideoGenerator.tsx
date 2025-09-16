@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useEffect } from 'react';
+// FIX: API key is handled server-side. The apiKey parameter is removed from service functions.
 import { generateVideoWithVeo } from '../geminiService';
 import { fileToBase64 } from '../utils/fileUtils';
 
 interface VideoGeneratorProps {
-  apiKey: string;
-  isKeyValid: boolean;
+  // FIX: Prop changed to `isApiReady` to reflect server-side key management.
+  isApiReady: boolean;
 }
 
 const loadingMessages = [
@@ -20,11 +21,11 @@ const loadingMessages = [
 
 const VEO_MODELS: { [key: string]: string } = {
     'veo2': 'veo-2.0-generate-001',
-    'veo3': 'veo-3.0-generate-001',
-    'veo3 fast': 'veo-3.0-fast-generate-001',
+    // 'veo3': 'veo-3.0-generate-001', // Commenting out non-public models
+    // 'veo3 fast': 'veo-3.0-fast-generate-001',
 };
 
-const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) => {
+const VideoGenerator: React.FC<VideoGeneratorProps> = ({ isApiReady }) => {
   const [prompt, setPrompt] = useState<string>('A majestic cinematic shot of a futuristic city at sunset');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -80,14 +81,16 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) =
         base64Image = await fileToBase64(imageFile);
       }
       const modelId = VEO_MODELS[selectedModel];
-      const uri = await generateVideoWithVeo(apiKey, prompt, modelId, base64Image, imageFile?.type);
+      // FIX: Removed apiKey from the service function call.
+      const uri = await generateVideoWithVeo(prompt, modelId, base64Image, imageFile?.type);
       setResultUri(uri);
     } catch (err: any) {
       setError(err.message || 'An unknown error occurred.');
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, prompt, imageFile, selectedModel]);
+  // FIX: Removed apiKey from dependencies.
+  }, [prompt, imageFile, selectedModel]);
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-6">
@@ -171,7 +174,6 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) =
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Note: Only `veo2` is confirmed to be publicly available. Other selections may not work.</p>
              </fieldset>
           </div>
 
@@ -197,7 +199,8 @@ const VideoGenerator: React.FC<VideoGeneratorProps> = ({ apiKey, isKeyValid }) =
           
           <button
             type="submit"
-            disabled={isLoading || !prompt || !isKeyValid}
+            // FIX: Use isApiReady instead of isKeyValid to determine if button is disabled.
+            disabled={isLoading || !prompt || !isApiReady}
             className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-purple-500 disabled:bg-gray-500 disabled:cursor-not-allowed transition-all duration-200"
           >
             Generate Video
